@@ -2,7 +2,6 @@ name: Compilar Executable (.exe) para Windows
 
 on:
   workflow_dispatch:
-
   push:
     tags:
       - 'v*'
@@ -15,7 +14,6 @@ jobs:
     runs-on: windows-latest
 
     steps:
-
       # 1. Descargar el repositorio
       - name: Descargar repositorio
         uses: actions/checkout@v4
@@ -28,11 +26,11 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # 3. Compilar, ejecutar pruebas y generar el fat JAR
+      # 3. Compilar con Maven
       - name: Compilar con Maven
         run: mvn clean package
 
-      # 4. Obtener versión
+      # 4. Obtener versión (Formato numérico estricto X.Y.Z para jpackage)
       - name: Obtener versión
         id: version
         shell: bash
@@ -40,9 +38,8 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            VERSION="0.0.0-dev-${GITHUB_RUN_NUMBER}"
+            VERSION="0.0.1"
           fi
-
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       # 5. Preparar directorio de distribución
@@ -51,38 +48,30 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
 
-      # 6. Crear aplicación Windows portable
-      - name: Generar aplicación portable con jpackage
+      # 6. Generar el Instalador MSI
+      - name: Generar Instalador con jpackage
         shell: powershell
         run: |
           jpackage `
-            --type app-image `
+            --type msi `
             --name "PDF-Organizer" `
             --input target `
             --main-jar "pdf-organizer-1.0.0-all.jar" `
             --main-class "com.example.pdforganizer.Main" `
             --dest dist `
             --app-version "${{ steps.version.outputs.version }}" `
-            --vendor "PDF Organizer"
+            --vendor "PDF Organizer" `
+            --win-shortcut `
+            --win-menu
 
-      # 7. Comprimir aplicación portable
-      - name: Crear ZIP portable
-        shell: powershell
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-
-          Compress-Archive `
-            -Path "dist/PDF-Organizer" `
-            -DestinationPath "PDF-Organizer-Windows-v$version.zip"
-
-      # 8. Subir artefacto de GitHub Actions
+      # 7. Subir el archivo MSI como Artefacto de GitHub Actions
       - name: Subir artefacto
         uses: actions/upload-artifact@v4
         with:
-          name: PDF-Organizer-Windows-${{ steps.version.outputs.version }}
-          path: "PDF-Organizer-Windows-v${{ steps.version.outputs.version }}.zip"
+          name: PDF-Organizer-Windows-Installer-${{ steps.version.outputs.version }}
+          path: "dist/*.msi"
 
-      # 9. Crear GitHub Release para tags
+      # 8. Crear GitHub Release cuando se sube un Tag
       - name: Crear GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -90,4 +79,4 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: PDF Organizer ${{ github.ref_name }}
           generate_release_notes: true
-          files: "PDF-Organizer-Windows-v${{ steps.version.outputs.version }}.zip"
+          files: "dist/*.msi"
