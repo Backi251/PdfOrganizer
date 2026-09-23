@@ -1,0 +1,6 @@
+com/example/pdforganizer/application/OrganizationServiceTest.class
+com/example/pdforganizer/util/FileNameUtilsTest.class
+com/example/pdforganizer/application/OrganizationServiceTest$1.class
+com/example/pdforganizer/util/FileSizeUtilsTest.class
+com/example/pdforganizer/application/PartitionServiceTest.class
+com/example/pdforganizer/infrastructure/PdfBoxSplitterTest.class

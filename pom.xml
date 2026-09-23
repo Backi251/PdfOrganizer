@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>pdf-organizer</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>PDF Compressor and Document Organizer</name>
+    <description>
+        Aplicacion de escritorio para copiar, comprimir, dividir y organizar
+        carpetas de documentos PDF respetando un limite estricto de tamano
+        por carpeta, sin modificar jamas los archivos originales.
+    </description>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!--
+            Se usa la rama 2.0.x (LTS de facto, ampliamente usada en produccion)
+            en lugar de PDFBox 3.x. Motivo: 3.x cambia la API de carga de
+            documentos (introduce la clase Loader) y otras firmas; se prioriza
+            aqui una version estable y bien probada para minimizar riesgo en
+            una aplicacion pensada para ejecutarse sin supervision tecnica
+            constante. Si se desea migrar a 3.x, el unico punto de contacto
+            con la API de carga es PdfBoxCompressor.compress() y
+            PdfBoxSplitter.splitByPageLimit() (uso de PDDocument.load(...)).
+        -->
+        <pdfbox.version>2.0.29</pdfbox.version>
+        <junit.version>5.10.2</junit.version>
+
+        <!-- Clase principal, referenciada por varios plugins -->
+        <main.class>com.example.pdforganizer.Main</main.class>
+    </properties>
+
+    <dependencies>
+        <!-- Apache PDFBox: lectura, compresion y division de PDFs -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+
+        <!-- JUnit 5 para pruebas unitarias -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>pdf-organizer</finalName>
+        <plugins>
+
+            <!-- Compilacion en Java 21 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>21</release>
+                </configuration>
+            </plugin>
+
+            <!-- Ejecucion de pruebas -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+
+            <!-- JAR con manifest apuntando a Main -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.1</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>${main.class}</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!--
+                maven-shade-plugin: genera un JAR "fat jar" con todas las
+                dependencias (PDFBox, fontbox, commons-logging, etc.) incluidas,
+                para poder distribuirlo al cliente sin necesidad de Maven.
+                Se prefiere shade sobre assembly porque relocaliza mejor los
+                recursos de PDFBox (fuentes, META-INF/services) evitando
+                conflictos de merge.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.3</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>all</shadedClassifierName>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>${main.class}</mainClass>
+                                </transformer>
+                                <!-- PDFBox registra servicios via META-INF/services; deben fusionarse -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+</project>
